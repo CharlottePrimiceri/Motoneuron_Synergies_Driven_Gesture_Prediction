@@ -11,7 +11,7 @@
 - `HandFingers.cs`: Unity C# script used to read a CSV file and animate the rigged hand in Unity.
   
 - `glove_sample_subj_01_trial_01/`: sample folder containing the glove record in WFDB format (`.hea` and `.dat`) and the CSV for Unity.
-- 
+  
 ### Unity setup
 
 A rigged hand model must be imported into Unity. The important requirement is that the hand contains separate finger bones such as:
@@ -54,3 +54,13 @@ For now, the Unity script replays the glove motion offline.
 - Distal interphalangeal joints (DIP) can be approximated from the PIP angle, for example using a factor such as `0.6 * PIP`.
 - Abduction is applied only to the base finger bones to avoid unrealistic twisting of the whole finger chain.
 - Sign inversions are sometimes necessary because the rig coordinate system may use the opposite rotation direction compared to the glove convention.
+
+### Recording the hand motion
+
+To capture a video from Unity:
+
+1. install the Recorder package from the Package Manager,
+2. create a dedicated camera close to the hand,
+3. use `Targeted Camera` as the Recorder source,
+4. choose manual recording or a sufficiently long recording interval,
+5. export the video in a standard format such as MP4.
