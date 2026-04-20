@@ -14,7 +14,7 @@
   
 ### Unity setup
 
-A rigged hand model must be imported into Unity. The important requirement is that the hand contains separate finger bones such as:
+A rigged hand model must be imported into Unity. The right hand model used for visualization was obtained from the Unity XR package, and the project was developed using Unity Editor version 6000.4.3f1. The important requirement is that the hand contains separate finger bones such as:
 
 - `b_r_thumb1`, `b_r_thumb2`
 - `b_r_index1`, `b_r_index2`, `b_r_index3`
@@ -64,3 +64,7 @@ To capture a video from Unity:
 3. use `Targeted Camera` as the Recorder source,
 4. choose manual recording or a sufficiently long recording interval,
 5. export the video in a standard format such as MP4.
+
+A video of the sample data can be found in the following drive:
+
+https://drive.google.com/file/d/1xKhL-a1pIBRN3dIU34b6PNTa2PQMBCOn/view?usp=sharing
