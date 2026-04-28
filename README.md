@@ -44,7 +44,7 @@ For now, the Unity script replays the glove motion offline.
 1. load all CSV rows at startup,
 2. store the initial local rotations of the bones,
 3. advance one sample at a time according to the chosen sample rate,
-4. apply finger flexion and abduction to the corresponding bones,
+4. apply finger flexion (around Z axe) and abduction (around Y axe) to the corresponding bones,
 5. loop the sequence when the end of the trial is reached.
 
 ### Practical assumptions used during playback
