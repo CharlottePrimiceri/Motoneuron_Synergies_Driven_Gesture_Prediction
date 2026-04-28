@@ -30,8 +30,8 @@ The script should then expose, in the Unity Inspector:
 - optional scale and inversion parameters for flexion and abduction.
 In the Inspector, assign:
 
-- the exported glove CSV file,
-- the correct bone transforms for all fingers.
+  - the exported glove CSV file,
+  - the correct bone transforms for all fingers.
 
 For example:
 
