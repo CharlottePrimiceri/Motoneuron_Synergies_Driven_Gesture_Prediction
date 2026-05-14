@@ -68,3 +68,16 @@ To capture a video from Unity:
 A video of the sample data can be found in the following drive:
 
 https://drive.google.com/file/d/1xKhL-a1pIBRN3dIU34b6PNTa2PQMBCOn/view?usp=sharing
+
+## Bibliography
+
+@article{PhysioNet-hand-kinematics-semg-1.0.0,
+  author = {Zhao, Zeming and Guo, Weichao and Zhou, Zeyu},
+  title = {{A database of hand kinematics, high-density sEMG of forearm and wrist for motion intent recognition}},
+  journal = {{PhysioNet}},
+  year = {2025},
+  month = jan,
+  note = {Version 1.0.0},
+  doi = {10.13026/ch3e-c195},
+  url = {https://doi.org/10.13026/ch3e-c195}
+}
