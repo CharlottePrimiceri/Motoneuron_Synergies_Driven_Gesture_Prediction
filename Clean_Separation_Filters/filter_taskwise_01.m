@@ -241,32 +241,30 @@ fprintf('=========================================================\n');
 
 
 %% ========================================================================
-% 6. LOGICA DI CLASSIFICAZIONE CROSS-TASK A 3 CLASSI (PER PREPARARE LO SCRIPT 04)
+% 6. CLASSIFICAZIONE MU
 %% ========================================================================
 
 summary.Task = string(summary.Task);
 pinchRows = summary(summary.Task == "pinch", :);
 handRows  = summary(summary.Task == "hand_closed", :);
 
+% Portiamo dietro anche la colonna ActiveSegments per fare l'incrocio sui segmenti totali
 T = innerjoin( ...
-    pinchRows(:, {'Grid','MU','NSpikes_clean_task','FR_task_Hz','Keep'}), ...
-    handRows(:,  {'Grid','MU','NSpikes_clean_task','FR_task_Hz','Keep'}), ...
+    pinchRows(:, {'Grid','MU','NSpikes_clean_task','FR_task_Hz','Keep','ActiveSegments'}), ...
+    handRows(:,  {'Grid','MU','NSpikes_clean_task','FR_task_Hz','Keep','ActiveSegments'}), ...
     'Keys', {'Grid','MU'}, ...
-    'LeftVariables', {'Grid','MU','NSpikes_clean_task','FR_task_Hz','Keep'}, ...
-    'RightVariables', {'NSpikes_clean_task','FR_task_Hz','Keep'} );
+    'LeftVariables', {'Grid','MU','NSpikes_clean_task','FR_task_Hz','Keep','ActiveSegments'}, ...
+    'RightVariables', {'NSpikes_clean_task','FR_task_Hz','Keep','ActiveSegments'} );
 
 T.Properties.VariableNames = { ...
     'Grid', 'MU', ...
-    'Pinch_Total', 'FR_pinch', 'KeepPinch', ...
-    'Hand_Total',  'FR_hand',  'KeepHand'};
+    'Pinch_Total', 'FR_pinch', 'KeepPinch', 'Segs_Pinch', ...
+    'Hand_Total',  'FR_hand',  'KeepHand',  'Segs_Hand'};
 
 T.ValidPinch = T.KeepPinch == true;
 T.ValidHand  = T.KeepHand  == true;
 
-% Taglio istantaneo delle MU non attive o scartate in entrambi i compiti
 T_clean = T(T.ValidPinch | T.ValidHand, :);
-
-% Assegnazione pura delle 3 Macro-Classi Richieste (Senza logaritmo decisionale)
 T_clean.TaskClass = strings(height(T_clean), 1);
 
 for i = 1:height(T_clean)
@@ -281,29 +279,67 @@ for i = 1:height(T_clean)
     end
 end
 
-% Colonna di background necessaria per non mandare in crash lo script 04
+% Totale segmenti attivi globali per le sole unità condivise (Max 4: 2 in pinch + 2 in hand)
+T_clean.TotalActiveSegments_Cross = T_clean.Segs_Pinch + T_clean.Segs_Hand;
+
 T_clean.Log2_HandOverPinch = log2((T_clean.FR_hand + eps) ./ (T_clean.FR_pinch + eps));
 taskPreferenceTable = T_clean;
 
-% Salvataggio della tabella finale coerente per gli script successivi
 writetable(taskPreferenceTable, '02_taskPreferenceTable.csv');
 save('02_taskPreferenceTable.mat', 'taskPreferenceTable', 'signal', 'parameters', ...
      'filtered', 'summary', 'tasks', 'fs', '-v7.3');
+
+
+%% ========================================================================
+% 7. STAMPE
+%% ========================================================================
+
 fprintf('\n============================================================================\n');
-fprintf('   CLASSIFICAZIONI MU SOPRAVVISUTE\n');
+fprintf('   CLASSIFICAZIONE MU \n');
 fprintf('============================================================================\n');
 
 if ~isempty(taskPreferenceTable)
-    % Estraiamo e mostriamo a schermo la tabella pulita ID per ID con la classe assegnata
-    Mappe_Finali = taskPreferenceTable(:, {'Grid', 'MU', 'TaskClass', 'FR_pinch', 'FR_hand'});
+    % Mostriamo l'elenco riga per riga includendo il totale dei segmenti attivi
+    Mappe_Finali = taskPreferenceTable(:, {'Grid', 'MU', 'TaskClass', 'FR_pinch', 'FR_hand', 'TotalActiveSegments_Cross'});
     disp(Mappe_Finali);
     
-    % Mostriamo anche un riepilogo numerico finale dei mazzetti per griglia
-    fprintf('\n Conteggio totale dei gruppi per Griglia:\n');
+    % --- FOCUS SPECIFICO SULLE MU SHARED RICHIESTO ---
+    fprintf('\n============================================================================\n');
+    fprintf('   DETTAGLIO CONSISTENZA DELLE UNITA'' CONDIVISE (SHARED)\n');
+    fprintf('============================================================================\n');
+    
+    idx_shared = taskPreferenceTable.TaskClass == "shared";
+    sharedTable = taskPreferenceTable(idx_shared, :);
+    
+    if ~isempty(sharedTable)
+        % Una MU è attiva in tutti e 4 i segmenti se Segs_Pinch == 2 AND Segs_Hand == 2 (ovvero totale cross = 4)
+        idx_4_segs = sharedTable.TotalActiveSegments_Cross == 4;
+        
+        n_shared_tot = height(sharedTable);
+        n_shared_4_4 = sum(idx_4_segs);
+        n_shared_parti = n_shared_tot - n_shared_4_4;
+        
+        fprintf('Totale Unità SHARED trovate: %d\n', n_shared_tot);
+        fprintf(' -> %d MU sono SHARED STABILI (attive in tutti e 4 i segmenti dell''esperimento: 2/2 Pinch AND 2/2 Hand)\n', n_shared_4_4);
+        if n_shared_4_4 > 0
+            disp(sharedTable(idx_4_segs, {'Grid', 'MU', 'FR_pinch', 'FR_hand'}));
+        end
+        
+        fprintf(' -> %d MU sono SHARED PARZIALI (intermittenti, attive solo in 2 o 3 segmenti totali dei 4 disponibili)\n', n_shared_parti);
+        if n_shared_parti > 0
+            disp(sharedTable(~idx_4_segs, {'Grid', 'MU', 'Segs_Pinch', 'Segs_Hand', 'TotalActiveSegments_Cross'}));
+        end
+    else
+        disp('Nessuna unità motoria classificata come "shared" nel dataset attuale.');
+    end
+    
+    fprintf('\n Conteggio complessivo dei gruppi per Griglia:\n');
     disp(groupsummary(taskPreferenceTable, ["Grid", "TaskClass"]));
 else
     disp('ATTENZIONE: Nessuna MU ha superato i filtri combinati.');
 end
+fprintf('============================================================================\n');
+disp('Pipeline completata. Statistiche consistenza shared pronte.');
 
 %% ========================================================================
 % FUNZIONI LOCALI
