@@ -1,9 +1,12 @@
-%% 01_filter_taskwise.m
-% Pipeline di Filtraggio Unità Motorie (MU) Task-Wise
-% Descrizione: Il codice analizza le scariche delle MU estratte tramite decomposizione
-% per i compiti motori concatenati (Pinch e Hand Closed). Applica un filtro basato
-% su criteri neurofisiologici di scarica minima per trial, preservando la variabilità
-% inter-trial (MU attive anche in un solo trial su due).
+%% 01_filter_and_classify_taskwise.m
+% Pipeline Unificata: Filtraggio Ordinato, Classificazione Cross-Task e Diagnostica MUedit
+%
+% Logica di filtraggio:
+%   1) Verifica FR media della task <= 40 Hz.
+%   2) Verifica presenza di >= 15 spike in almeno uno dei due trial (T1 OR T2).
+%   3) Esclusione immediata delle MU non valide.
+%   4) Generazione dei report diagnostici completi e liste ID per MUedit.
+%   5) Classificazione cross-task a 3 classi pure (pinch_only, hand_only, shared).
 
 clear; clc;
 
@@ -17,12 +20,12 @@ load(infile, 'signal', 'parameters');
 fs = signal.fsamp;
 nGrid = numel(signal.Pulsetrain);
 
-% --- Criteri di Selezione Neurofisiologica ---
-minSpikesTrial = 15;  % Soglia minima di spike nel singolo trial (5s) per considerare la MU attiva
-minFR = 0;            % Frequenza di scarica minima ammessa nella task (Hz) ridondante se messa a 0 
-maxFR = 40;           % Frequenza di scarica massima ammessa nella task (Hz)
-maxInstFR = 40;       % Soglia per la rimozione di spike anomali ravvicinati (fisiologicamente impossibili)
-maxCoV_ISI = 0.50;    % Coefficiente di variazione dell'ISI (solo descrittivo)
+% --- Criteri di Selezione ---
+minSpikesTrial = 15;  % Soglia minima di spike in almeno un trial
+minFR = 0;            % Frequenza di scarica minima ammessa (Hz)
+maxFR = 40;           % Frequenza di scarica massima ammessa (Hz) - IL TUO SBARRAMENTO
+maxInstFR = 40;       % Soglia per la rimozione di spike anomali (Hz)
+maxCoV_ISI = 2.0;     % Valore di backup per CoV
 
 %% ========================================================================
 % 2. DEFINIZIONE DEI SEGMENTI TEMPORALI (TRIAL)
@@ -43,12 +46,11 @@ filtered = struct();
 summaryRows = {};
 
 %% ========================================================================
-% 3. FILTRAGGIO TASK-WISE PER OGNI GRIGLIA
+% 3. CORE LOOP 1: FILTRAGGIO TASK-WISE
 %% ========================================================================
 
 for g = 1:nGrid
     if isempty(signal.Pulsetrain{g}), continue; end
-
     muCount = size(signal.Pulsetrain{g}, 1);
     keep_any = false(muCount, 1);
 
@@ -57,7 +59,6 @@ for g = 1:nGrid
         segs = tasks(t).segments;
 
         keep_task = false(muCount, 1);
-        active_segment_count = zeros(muCount, 1);
         clean_discharges_task = cell(1, muCount);
 
         for mu = 1:muCount
@@ -66,99 +67,80 @@ for g = 1:nGrid
 
             segNSpikes = nan(size(segs,1), 1);
             segFR = nan(size(segs,1), 1);
-            segCoV = nan(size(segs,1), 1);
             segRemoved = zeros(size(segs,1), 1);
             segResults = strings(size(segs,1), 1);
 
-            % Analisi separata dei singoli trial (segmenti)
+            % Estrazione e pulizia spike per i singoli trial
             for s = 1:size(segs, 1)
-                segStart = segs(s, 1);
-                segEnd = segs(s, 2);
+                segStart = segs(s, 1); segEnd = segs(s, 2);
                 segDuration = (segEnd - segStart + 1) / fs;
 
-                % Estrazione degli spike nel segmento corrente
                 spkSeg = spk_original(spk_original >= segStart & spk_original <= segEnd);
                 spkSeg = sort(spkSeg(:));
 
-                % Pulizia dagli artefatti (rimozione spike troppo ravvicinati)
                 [spkSegClean, nRemoved] = remove_fast_spikes(spkSeg, fs, maxInstFR);
-
                 nSpikesSeg = numel(spkSegClean);
                 frSeg = nSpikesSeg / segDuration;
 
-                % Calcolo del CoV ISI solo se vi sono abbastanza spike nel trial
                 if nSpikesSeg >= minSpikesTrial
-                    % 
-                    ISI = diff(spkSegClean) / fs;
-                    covSeg = std(ISI) / mean(ISI);
                     segResults(s) = sprintf("active_N%d", nSpikesSeg);
                 else
-                    covSeg = NaN;
-                    segResults(s) = "silent";
+                    segResults(s) = "low_activity";
                 end
 
-                if nRemoved > 0
-                    segResults(s) = segResults(s) + sprintf("_removedFast%d", nRemoved);
-                end
-
-                segNSpikes(s) = nSpikesSeg;
-                segFR(s) = frSeg;
-                segCoV(s) = covSeg;
-                segRemoved(s) = nRemoved;
-
-                allCleanSpikes = [allCleanSpikes; spkSegClean(:)]; %#ok<AGROW>
+                segNSpikes(s) = nSpikesSeg; segFR(s) = frSeg; segRemoved(s) = nRemoved;
+                allCleanSpikes = [allCleanSpikes; spkSegClean(:)]; 
             end
 
-            % Analisi globale della Task concatenata
             allCleanSpikes = sort(allCleanSpikes);
             nSpikesTask = numel(allCleanSpikes);
             
             taskDuration = 0;
-            for s = 1:size(segs, 1)
-                taskDuration = taskDuration + (segs(s,2) - segs(s,1) + 1) / fs;
-            end
+            for s = 1:size(segs, 1), taskDuration = taskDuration + (segs(s,2) - segs(s,1) + 1) / fs; end
             frTask = nSpikesTask / taskDuration;
 
+            % Calcolo Coefficiente di Variazione dell'ISI (dimensione-libera)
             if nSpikesTask >= 3
-                ISI_task = diff(allCleanSpikes) / fs;
-                covTask = std(ISI_task) / mean(ISI_task);
+                isi_seconds = diff(allCleanSpikes) / fs;
+                covIsiTask = std(isi_seconds) / mean(isi_seconds);
             else
-                covTask = NaN;
+                covIsiTask = NaN;
             end
 
-            % Applicazione dei Criteri di Esclusione
+            % Conteggio segmenti attivi (quanti trial hanno almeno 15 spike)
+            activeSegmentsCount = sum(segNSpikes >= minSpikesTrial);
+
+            % --- APPLICAZIONE FILTRI NEUROFISIOLOGICI SEQUENZIALI ---
             reasonsTask = strings(0);
             
-            % Regola Fondamentale: La MU deve essere attiva (>=15 spike) in almeno uno dei due trial
-            if ~(segNSpikes(1) >= minSpikesTrial || segNSpikes(2) >= minSpikesTrial)
-                reasonsTask(end+1) = "few_spikes_in_both_trials";
+            % 1. Controllo Firing Rate della task (Deve essere <= 40 Hz)
+            if frTask > maxFR
+                reasonsTask(end+1) = "FR_too_high";
+            end
+            if frTask < minFR
+                reasonsTask(end+1) = "FR_too_low";
+            end
+            
+            % 2. Controllo presenza spike (Almeno 15 spike in T1 OPPURE in T2)
+            if activeSegmentsCount == 0
+                reasonsTask(end+1) = "insufficient_spikes";
             end
 
-            if frTask < minFR,  reasonsTask(end+1) = "FR_low_task";  end
-            if frTask > maxFR,  reasonsTask(end+1) = "FR_high_task"; end
-
+            % Esito finale per la singola task
             keep_task(mu) = isempty(reasonsTask);
-            active_segment_count(mu) = sum(segNSpikes >= minSpikesTrial);
             clean_discharges_task{mu} = allCleanSpikes;
 
-            if isempty(reasonsTask)
-                taskReason = "kept";
-            else
-                taskReason = strjoin(reasonsTask, "+");
-            end
+            if isempty(reasonsTask), taskReason = "kept"; else, taskReason = strjoin(reasonsTask, "+"); end
 
-            % Risultati
+            % Popolamento riga per riga per la tabella summary originale
             summaryRows(end+1, :) = { ...
-                g, mu, taskName, nSpikesTask, frTask, covTask, ...
+                g, mu, taskName, nSpikesTask, frTask, covIsiTask, ...
                 segNSpikes(1), segNSpikes(2), min(segNSpikes), max(segNSpikes), ...
-                mean(segFR, 'omitnan'), max(segFR), sum(segRemoved), ...
-                active_segment_count(mu), strjoin(segResults, " | "), ...
-                taskReason, keep_task(mu)}; %#ok<SAGROW>
+                mean(segFR, 'omitnan'), max(segFR), sum(segRemoved), activeSegmentsCount, ...
+                strjoin(segResults, " | "), taskReason, keep_task(mu)}; %#ok<SAGROW>
         end
 
-        % Task Filtrata, risultati
         filtered(g).(taskName).keep = keep_task;
-        filtered(g).(taskName).active_segment_count = active_segment_count;
         filtered(g).(taskName).clean_dischargetimes = clean_discharges_task;
         filtered(g).(taskName).Pulsetrain = signal.Pulsetrain{g}(keep_task, :);
         filtered(g).(taskName).Dischargetimes_clean = clean_discharges_task(keep_task);
@@ -170,9 +152,8 @@ for g = 1:nGrid
     filtered(g).Pulsetrain_any = signal.Pulsetrain{g}(keep_any, :);
 end
 
-
 %% ========================================================================
-% 4. SAVE
+% 4. SAVE & LE TUE STAMPE DIAGNOSTICHE ORIGINALI
 %% ========================================================================
 
 summary = cell2table(summaryRows, 'VariableNames', { ...
@@ -258,26 +239,87 @@ for g = grids'
 end
 fprintf('=========================================================\n');
 
+
 %% ========================================================================
-% FUNZIONI - rimozione spike
+% 6. LOGICA DI CLASSIFICAZIONE CROSS-TASK A 3 CLASSI (PER PREPARARE LO SCRIPT 04)
+%% ========================================================================
+
+summary.Task = string(summary.Task);
+pinchRows = summary(summary.Task == "pinch", :);
+handRows  = summary(summary.Task == "hand_closed", :);
+
+T = innerjoin( ...
+    pinchRows(:, {'Grid','MU','NSpikes_clean_task','FR_task_Hz','Keep'}), ...
+    handRows(:,  {'Grid','MU','NSpikes_clean_task','FR_task_Hz','Keep'}), ...
+    'Keys', {'Grid','MU'}, ...
+    'LeftVariables', {'Grid','MU','NSpikes_clean_task','FR_task_Hz','Keep'}, ...
+    'RightVariables', {'NSpikes_clean_task','FR_task_Hz','Keep'} );
+
+T.Properties.VariableNames = { ...
+    'Grid', 'MU', ...
+    'Pinch_Total', 'FR_pinch', 'KeepPinch', ...
+    'Hand_Total',  'FR_hand',  'KeepHand'};
+
+T.ValidPinch = T.KeepPinch == true;
+T.ValidHand  = T.KeepHand  == true;
+
+% Taglio istantaneo delle MU non attive o scartate in entrambi i compiti
+T_clean = T(T.ValidPinch | T.ValidHand, :);
+
+% Assegnazione pura delle 3 Macro-Classi Richieste (Senza logaritmo decisionale)
+T_clean.TaskClass = strings(height(T_clean), 1);
+
+for i = 1:height(T_clean)
+    if T_clean.ValidPinch(i) && ~T_clean.ValidHand(i)
+        T_clean.TaskClass(i) = "pinch_only";
+        
+    elseif ~T_clean.ValidPinch(i) && T_clean.ValidHand(i)
+        T_clean.TaskClass(i) = "hand_only";
+        
+    elseif T_clean.ValidPinch(i) && T_clean.ValidHand(i)
+        T_clean.TaskClass(i) = "shared";
+    end
+end
+
+% Colonna di background necessaria per non mandare in crash lo script 04
+T_clean.Log2_HandOverPinch = log2((T_clean.FR_hand + eps) ./ (T_clean.FR_pinch + eps));
+taskPreferenceTable = T_clean;
+
+% Salvataggio della tabella finale coerente per gli script successivi
+writetable(taskPreferenceTable, '02_taskPreferenceTable.csv');
+save('02_taskPreferenceTable.mat', 'taskPreferenceTable', 'signal', 'parameters', ...
+     'filtered', 'summary', 'tasks', 'fs', '-v7.3');
+fprintf('\n============================================================================\n');
+fprintf('   CLASSIFICAZIONI MU SOPRAVVISUTE\n');
+fprintf('============================================================================\n');
+
+if ~isempty(taskPreferenceTable)
+    % Estraiamo e mostriamo a schermo la tabella pulita ID per ID con la classe assegnata
+    Mappe_Finali = taskPreferenceTable(:, {'Grid', 'MU', 'TaskClass', 'FR_pinch', 'FR_hand'});
+    disp(Mappe_Finali);
+    
+    % Mostriamo anche un riepilogo numerico finale dei mazzetti per griglia
+    fprintf('\n Conteggio totale dei gruppi per Griglia:\n');
+    disp(groupsummary(taskPreferenceTable, ["Grid", "TaskClass"]));
+else
+    disp('ATTENZIONE: Nessuna MU ha superato i filtri combinati.');
+end
+
+%% ========================================================================
+% FUNZIONI LOCALI
 %% ========================================================================
 function [spikesClean, nRemoved] = remove_fast_spikes(spikes, fs, maxInstFR)
-    spikesClean = sort(spikes(:));
-    nRemoved = 0;
+    spikesClean = sort(spikes(:)); nRemoved = 0;
     if numel(spikesClean) < 2, return; end
-
     minISI_samples = round(fs / maxInstFR);
     changed = true;
-    
     while changed
         changed = false;
         isi_samples = diff(spikesClean);
         badIdx = find(isi_samples < minISI_samples, 1, 'first');
-
         if ~isempty(badIdx)
             spikesClean(badIdx + 1) = [];
-            nRemoved = nRemoved + 1;
-            changed = true;
+            nRemoved = nRemoved + 1; changed = true;
         end
     end
 end
