@@ -17,8 +17,8 @@ for grid_idx = 1:double(sig_decomp.signal.ngrid)
     MU_Index_Map.(sprintf('Grid_%d', grid_idx)).Original_MU_IDs = active_ids;
 end
 
-dataFolder = "04_final_MU_sets_crosscorr";
-plotFolder = '04_diagnostica_muap_plots_crosscorr';
+dataFolder = "final_MU_sets_crosscorr";
+plotFolder = 'muap_plots_crosscorr2d';
 if ~exist(dataFolder, 'dir'), mkdir(dataFolder); end
 if ~exist(plotFolder, 'dir'), mkdir(plotFolder); end
 
@@ -55,12 +55,14 @@ T.FinalSet_New          = repmat("Pending", height(T), 1);
 T.KeepMU_New            = false(height(T), 1);
 totalRows = height(T);
 
-fprintf('Fase 1: Estrazione Metriche INTRA-MU su %d unità...\n', totalRows);
+fprintf('Fase 1: Estrazione Metriche INTRA-MU e Generazione Plot Diagnostici su %d unità...\n', totalRows);
+
+% Manteniamo i plot nascosti a schermo durante l'elaborazione per velocizzare MATLAB
 set(0, 'DefaultFigureVisible', 'off');
 MU_Collector = struct();
 
 %% ========================================================================
-% 1A: Estrazione R2D e Forme d'onda
+% 1A: Estrazione R2D, Forme d'onda e Generazione Immagini Diagnostiche (2x2)
 %% ========================================================================
 for row = 1:totalRows
     g  = T.Grid(row);
@@ -106,6 +108,7 @@ for row = 1:totalRows
     
     [~, sortedChans] = sort(p2p_global, 'descend');
     topChans = sortedChans(1:min(topK_corr, numel(sortedChans)));
+    best_ch = topChans(1); % Canale con ampiezza massima
     
     r_P1_P2 = compute_muap_xcorr2D(MUAP_p_T1, MUAP_p_T2, topChans);
     r_H1_H2 = compute_muap_xcorr2D(MUAP_h_T1, MUAP_h_T2, topChans);
@@ -124,12 +127,81 @@ for row = 1:totalRows
     T.R2D_Global_Pinch_Hand(row)  = r_Global;
     
     all_intra_corrs = [r_P1_P2, r_H1_H2, r_P1_H2, r_P2_H1, r_P1_H1, r_P2_H2, r_Global];
-    T.Mean_All_Cases(row)         = mean(all_intra_corrs, 'omitnan');
+    mean_score = mean(all_intra_corrs, 'omitnan');
+    T.Mean_All_Cases(row)         = mean_score;
+
+    %% =====================================================================
+    % GENERAZIONE GRAFICO DIAGNOSTICO ORIGINALE AGGIORNATO (Layout 2x2)
+    %% =====================================================================
+    fig = figure('Color', 'w', 'Units', 'pixels', 'Position', [100, 100, 1200, 850]);
+    
+    % Palette fissa a 10 colori per matchare i canali top tra Pinch e Hand
+    colors_top10 = lines(min(10, numel(topChans)));
+    
+    % --- Pannello 1: PINCH - Confronto Inter-Trial sul canale migliore ---
+    subplot(2, 2, 1); hold on;
+    if ~any(isnan(MUAP_p_T1(:))), plot(t_axis, MUAP_p_T1(best_ch, :), 'Color', [0.2 0.6 0.8], 'LineWidth', 2); end
+    if ~any(isnan(MUAP_p_T2(:))), plot(t_axis, MUAP_p_T2(best_ch, :), 'Color', [0.9 0.4 0.1], 'LineWidth', 1.5, 'LineStyle', '--'); end
+    grid on; title(sprintf('PINCH: Allineamento Trial (Ch Best %d, R2D = %.2f)', best_ch, r_P1_P2));
+    xlabel('Tempo (ms)'); ylabel('Ampiezza (\muV)');
+    legend({'Trial 1', 'Trial 2'}, 'Location', 'best');
+    axis tight;
+    
+    % --- Pannello 2: PINCH - Sovrapposizione morfologica dei 10 canali top ---
+    subplot(2, 2, 2); hold on;
+    if ~any(isnan(MUAP_p_all(:)))
+        for tc_idx = 1:numel(topChans)
+            ch = topChans(tc_idx);
+            plot(t_axis, MUAP_p_all(ch, :), 'Color', colors_top10(tc_idx, :), 'LineWidth', 1.2);
+        end
+    end
+    grid on; title('PINCH: Coerenza Forme d''Onda (10 Canali Top Matched)');
+    xlabel('Tempo (ms)'); ylabel('Ampiezza (\muV)');
+    axis tight;
+    
+    % --- Pannello 3: HAND CLOSED - Confronto Inter-Trial sul canale migliore ---
+    subplot(2, 2, 3); hold on;
+    if ~any(isnan(MUAP_h_T1(:))), plot(t_axis, MUAP_h_T1(best_ch, :), 'Color', [0.2 0.7 0.3], 'LineWidth', 2); end
+    if ~any(isnan(MUAP_h_T2(:))), plot(t_axis, MUAP_h_T2(best_ch, :), 'Color', [0.8 0.2 0.6], 'LineWidth', 1.5, 'LineStyle', '--'); end
+    grid on; title(sprintf('HAND CLOSED: Allineamento Trial (Ch Best %d, R2D = %.2f)', best_ch, r_H1_H2));
+    xlabel('Tempo (ms)'); ylabel('Ampiezza (\muV)');
+    legend({'Trial 1', 'Trial 2'}, 'Location', 'best');
+    axis tight;
+    
+    % --- Pannello 4: HAND CLOSED - Sovrapposizione morfologica dei 10 canali top ---
+    subplot(2, 2, 4); hold on;
+    if ~any(isnan(MUAP_h_all(:)))
+        for tc_idx = 1:numel(topChans)
+            ch = topChans(tc_idx);
+            plot(t_axis, MUAP_h_all(ch, :), 'Color', colors_top10(tc_idx, :), 'LineWidth', 1.2);
+        end
+    end
+    grid on; title('HAND CLOSED: Coerenza Forme d''Onda (10 Canali Top Matched)');
+    xlabel('Tempo (ms)'); ylabel('Ampiezza (\muV)');
+    axis tight;
+    
+    % Determina lo stato provvisorio di stabilità per il titolo
+    if mean_score >= R_threshold_mean, provStatus = "Stable"; else, provStatus = "Unstable"; end
+    
+    % Titolo Globale della Figura con Riepilogo Metriche
+    sgtitle(sprintf('Grid %d | MU %d | Task Orig: %s -> Stato Provv: %s\nMedia Intra-MU R2D = %.3f | Global Cross-Task R2D = %.3f', ...
+        g, mu, T.TaskClass(row), provStatus, mean_score, r_Global), 'FontSize', 12, 'FontWeight', 'bold', 'Interpreter', 'none');
+    
+    % Salvataggio del Plot Grafico univoco per ogni MU
+    plotFileName = sprintf('%s/Grid%d_MU%02d_Diagnostic.png', plotFolder, g, mu);
+    saveas(fig, plotFileName);
+    close(fig);
+    
+    if mod(row, 10) == 0 || row == totalRows
+        fprintf(' -> Elaborate e salvate %d/%d immagini...\n', row, totalRows);
+    end
 end
+
+% Ripristiniamo la visibilità normale dei grafici
 set(0, 'DefaultFigureVisible', 'on');
 
 %% ========================================================================
-% STABILITA' INTRA-MU (Filtraggio iniziale)
+% STABILITA' INTRA-MU (Filtraggio iniziale in Tabella)
 %% ========================================================================
 fprintf('\nFase 3: Filtraggio Stabilità (Scarto se Mean_All_Cases < %.2f)...\n', R_threshold_mean);
 for row = 1:height(T)
@@ -154,7 +226,6 @@ end
 %% ========================================================================
 fprintf('\nFase 1B: Calcolo Cross-Correlazione Inter-MU basata sulla media dei trial...\n');
 dupTable_All = table(); 
-
 grids = fieldnames(MU_Collector);
 for i = 1:numel(grids)
     g_str = grids{i}; g_idx = str2double(extractAfter(g_str, '_'));
@@ -164,27 +235,21 @@ for i = 1:numel(grids)
     
     for m1 = 1:nMU
         for m2 = m1+1:nMU
-            % Profilo globale per la scelta dei canali dominanti (MU1)
             v1 = data.P_All(:,:,m1); if any(isnan(v1(:))), v1 = data.H_All(:,:,m1); end
             if any(isnan(v1(:))), continue; end
             v1_ch = max(v1,[],2) - min(v1,[],2); [~, sCh] = sort(v1_ch,'descend'); tCh = sCh(1:min(topK_corr,numel(sCh)));
             
-            % Calcolo della correlazione nei 4 blocchi
             r_P1 = compute_muap_xcorr2D(data.P_T1(:,:,m1), data.P_T1(:,:,m2), tCh);
             r_P2 = compute_muap_xcorr2D(data.P_T2(:,:,m1), data.P_T2(:,:,m2), tCh);
             r_H1 = compute_muap_xcorr2D(data.H_T1(:,:,m1), data.H_T1(:,:,m2), tCh);
             r_H2 = compute_muap_xcorr2D(data.H_T2(:,:,m1), data.H_T2(:,:,m2), tCh);
             
-            % InterMU_Corr è la MEDIA dei trial reali esistenti (Pinch + Hand)
             trial_corrs = [r_P1, r_P2, r_H1, r_H2];
             r_media_inter = mean(trial_corrs, 'omitnan');
             
-            % Se l'unità non ha scaricato in nessuna condizione, saltA
             if isnan(r_media_inter), continue; end
             
-            % Se la media cross-task e cross-trial supera la soglia, è un duplicato
             if r_media_inter > Duplicate_threshold
-                % Ampiezze dai profili All per decidere quale tenere nella Fase 4
                 v1_amp = data.P_All(:,:,m1); if any(isnan(v1_amp(:))), v1_amp = data.H_All(:,:,m1); end
                 v2_amp = data.P_All(:,:,m2); if any(isnan(v2_amp(:))), v2_amp = data.H_All(:,:,m2); end
                 amp1 = max(v1_amp(:)) - min(v1_amp(:));
@@ -209,8 +274,7 @@ for v = 1:numel(vars_to_round1)
 end
 disp(Tab_View(1:min(15, height(Tab_View)), :));
 
-
-% --- TABELLA 2A: INTER-MU NON FILTRATA (InterMU_Corr è la MEDIA delle prime 4 colonne) ---
+% --- TABELLA 2A: INTER-MU NON FILTRATA ---
 fprintf('\n--- TABELLA 2A: DUPLICATI SU TUTTE LE UNITA'' (Unfiltered, Soglia Media > %.2f) ---\n', Duplicate_threshold);
 if ~isempty(dupTable_All)
     dupTable_All_Print = dupTable_All;
@@ -222,7 +286,6 @@ if ~isempty(dupTable_All)
 else
     disp('Nessun duplicato rilevato in assoluto.');
 end
-
 
 % --- TABELLA 2B: INTER-MU FILTRATA (Solo unità stabili) ---
 fprintf('\n--- TABELLA 2B: DUPLICATI SOLO TRA UNITA'' APPROVATE DALL''INTRA-MU (Filtered, Soglia Media > %.2f) ---\n', Duplicate_threshold);
@@ -240,7 +303,6 @@ if ~isempty(dupTable_All)
         end
     end
 end
-
 if ~isempty(dupTable_Filtered)
     dupTable_Filtered_Print = dupTable_Filtered;
     vars_to_round3 = {'r_P1', 'r_P2', 'r_H1', 'r_H2', 'InterMU_Corr'};
@@ -277,8 +339,6 @@ if ~isempty(dupTable_Filtered)
     end
 end
 fprintf('Rimossi %d duplicati effettivi dalle unità stabili.\n', scartati_count);
-
-
 disp('--- TABELLA 3: CONTEGGIO STATO FINALE PER CATEGORIA DOPO SCREMATURA ---');
 disp(groupsummary(T, {'TaskClass','FinalSet_New'}));
 
@@ -306,6 +366,7 @@ function MUAP = compute_sta(EMG, spikes, pre, post)
     end
 end
 
+% Calcolo Cross-Correlazione 2D normalizzata
 function R2D = compute_muap_xcorr2D(A, B, chList)
     if any(isnan(A(:))) || any(isnan(B(:))), R2D = NaN; return; end
     A = A(chList, :); B = B(chList, :);
