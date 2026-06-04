@@ -5,8 +5,8 @@
 %   1) Verifica FR media della task <= 40 Hz.
 %   2) Verifica presenza di >= 15 spike in almeno uno dei due trial (T1 OR T2).
 %   3) Esclusione immediata delle MU non valide.
-%   4) Generazione dei report diagnostici completi e liste ID per MUedit.
-%   5) Classificazione cross-task a 3 classi pure (pinch_only, hand_only, shared).
+%   4) Tabelle
+%   5) Classificazione in pinch_only, hand_only, shared.
 
 clear; clc;
 
@@ -23,7 +23,7 @@ nGrid = numel(signal.Pulsetrain);
 % --- Criteri di Selezione ---
 minSpikesTrial = 15;  % Soglia minima di spike in almeno un trial
 minFR = 0;            % Frequenza di scarica minima ammessa (Hz)
-maxFR = 40;           % Frequenza di scarica massima ammessa (Hz) - IL TUO SBARRAMENTO
+maxFR = 40;           % Frequenza di scarica massima ammessa (Hz) 
 maxInstFR = 40;       % Soglia per la rimozione di spike anomali (Hz)
 maxCoV_ISI = 2.0;     % Valore di backup per CoV
 
@@ -46,7 +46,7 @@ filtered = struct();
 summaryRows = {};
 
 %% ========================================================================
-% 3. CORE LOOP 1: FILTRAGGIO TASK-WISE
+% 3 FILTRAGGIO TASK-WISE
 %% ========================================================================
 
 for g = 1:nGrid
@@ -99,7 +99,7 @@ for g = 1:nGrid
             for s = 1:size(segs, 1), taskDuration = taskDuration + (segs(s,2) - segs(s,1) + 1) / fs; end
             frTask = nSpikesTask / taskDuration;
 
-            % Calcolo Coefficiente di Variazione dell'ISI (dimensione-libera)
+            % Calcolo Coefficiente di Variazione dell'ISI )
             if nSpikesTask >= 3
                 isi_seconds = diff(allCleanSpikes) / fs;
                 covIsiTask = std(isi_seconds) / mean(isi_seconds);
@@ -110,7 +110,7 @@ for g = 1:nGrid
             % Conteggio segmenti attivi (quanti trial hanno almeno 15 spike)
             activeSegmentsCount = sum(segNSpikes >= minSpikesTrial);
 
-            % --- APPLICAZIONE FILTRI NEUROFISIOLOGICI SEQUENZIALI ---
+            % APPLICAZIONE FILTRI NEUROFISIOLOGICI
             reasonsTask = strings(0);
             
             % 1. Controllo Firing Rate della task (Deve essere <= 40 Hz)
@@ -126,7 +126,7 @@ for g = 1:nGrid
                 reasonsTask(end+1) = "insufficient_spikes";
             end
 
-            % Esito finale per la singola task
+            % Spike puliti per task
             keep_task(mu) = isempty(reasonsTask);
             clean_discharges_task{mu} = allCleanSpikes;
 
@@ -153,7 +153,7 @@ for g = 1:nGrid
 end
 
 %% ========================================================================
-% 4. SAVE & LE TUE STAMPE DIAGNOSTICHE ORIGINALI
+% 4.Print
 %% ========================================================================
 
 summary = cell2table(summaryRows, 'VariableNames', { ...
@@ -162,7 +162,7 @@ summary = cell2table(summaryRows, 'VariableNames', { ...
     'MeanFR_trials_Hz', 'MaxTrialFR_Hz', 'RemovedFastSpikes', 'ActiveSegments', ...
     'SegmentActivity', 'TaskReason', 'Keep'});
 
-save('01_decomp_filtered_taskwise.mat', 'signal', 'parameters', 'filtered', 'summary', ...
+save('01_decomp_filtered_taskwise_3grids.mat', 'signal', 'parameters', 'filtered', 'summary', ...
      'tasks', 'fs', 'minFR', 'maxFR', 'minSpikesTrial', 'maxCoV_ISI', 'maxInstFR', '-v7.3');
 writetable(summary, '01_decomp_filtered_taskwise_fullfile.csv');
 
@@ -179,10 +179,10 @@ disp(groupsummary(summary(summary.Keep == true,:), ["Grid", "Task", "ActiveSegme
 disp('Salvati: 01_decomp_filtered_taskwise.mat / .csv');
 
 % ========================================================================
-% DIAGNOSTICA: REPORT RIMOZIONE SPIKE 
+% REPORT RIMOZIONE SPIKE 
 % ========================================================================
 fprintf('\n=========================================================\n');
-fprintf('        REPORT DIAGNOSTICO: RIMOZIONE SPIKE FAST\n');
+fprintf('        RIMOZIONE SPIKE FAST\n');
 fprintf('=========================================================\n');
 
 idx_removed = summary.RemovedFastSpikes > 0;
@@ -196,9 +196,9 @@ if any(idx_removed)
     total_spikes = sum(summary.NSpikes_clean_task) + total_removed;
     perc_removed = (total_removed / total_spikes) * 100;
     
-    fprintf('-> Totale anomalie rimosse nel dataset: %d spike\n', total_removed);
-    fprintf('-> Impatto sul dataset: %.3f%% degli spike totali eliminati.\n', perc_removed);
-    fprintf('-> NOTA: Se l''impatto è basso (<1%%), il filtro agisce come "salvavita" isolato.\n');
+    fprintf('Totale anomalie rimosse nel dataset: %d spike\n', total_removed);
+    fprintf('Impatto sul dataset: %.3f%% degli spike totali eliminati.\n', perc_removed);
+
 else
     fprintf('Il filtro NON ha eliminato alcuno spike nell''intero dataset.\n');
     fprintf('Tutte le distanze tra spike consecutivi sono fisiologiche (> %d ms, cioè < %d Hz).\n', ...
@@ -285,13 +285,13 @@ T_clean.TotalActiveSegments_Cross = T_clean.Segs_Pinch + T_clean.Segs_Hand;
 T_clean.Log2_HandOverPinch = log2((T_clean.FR_hand + eps) ./ (T_clean.FR_pinch + eps));
 taskPreferenceTable = T_clean;
 
-writetable(taskPreferenceTable, '02_taskPreferenceTable.csv');
-save('02_taskPreferenceTable.mat', 'taskPreferenceTable', 'signal', 'parameters', ...
+writetable(taskPreferenceTable, '02_taskPreferenceTable_3grids.csv');
+save('02_taskPreferenceTable_3grids.mat', 'taskPreferenceTable', 'signal', 'parameters', ...
      'filtered', 'summary', 'tasks', 'fs', '-v7.3');
 
 
 %% ========================================================================
-% 7. STAMPE
+% 7. STAMPE CLASSIFICAZIONE MU E ANALISI CONSISTENZA SHARED
 %% ========================================================================
 
 fprintf('\n============================================================================\n');
@@ -299,13 +299,13 @@ fprintf('   CLASSIFICAZIONE MU \n');
 fprintf('============================================================================\n');
 
 if ~isempty(taskPreferenceTable)
-    % Mostriamo l'elenco riga per riga includendo il totale dei segmenti attivi
+
     Mappe_Finali = taskPreferenceTable(:, {'Grid', 'MU', 'TaskClass', 'FR_pinch', 'FR_hand', 'TotalActiveSegments_Cross'});
     disp(Mappe_Finali);
     
-    % --- FOCUS SPECIFICO SULLE MU SHARED RICHIESTO ---
+    % FOCUS SPECIFICO SULLE MU SHARED
     fprintf('\n============================================================================\n');
-    fprintf('   DETTAGLIO CONSISTENZA DELLE UNITA'' CONDIVISE (SHARED)\n');
+    fprintf('   CONSISTENZA DELLE UNITA'' CONDIVISE (SHARED)\n');
     fprintf('============================================================================\n');
     
     idx_shared = taskPreferenceTable.TaskClass == "shared";
@@ -338,8 +338,7 @@ if ~isempty(taskPreferenceTable)
 else
     disp('ATTENZIONE: Nessuna MU ha superato i filtri combinati.');
 end
-fprintf('============================================================================\n');
-disp('Pipeline completata. Statistiche consistenza shared pronte.');
+
 
 %% ========================================================================
 % FUNZIONI LOCALI
