@@ -8,9 +8,9 @@ The thesis investigates whether the relationship can be learned from synchronize
 
 The repository is organized into three main components:
 
-- **`preprocessing/`** — HD-sEMG processing, motor unit decomposition, motor unit validation and tracking, discharge rate estimation, and neural synergy extraction.
-- **`LSTM/`** — learning of the mapping between temporal synergy activations and hand kinematics using an LSTM network, including the experimental analyses and model considerations.
-- **`Unity_Visualization/`** — offline visualization of the recorded or predicted hand motion using a rigged hand in Unity.
+- **`preprocessing/`**: HD-sEMG processing, motor unit decomposition, motor unit validation and tracking, discharge rate estimation, and neural synergy extraction.
+- **`LSTM/`**: learning of the mapping between temporal synergy activations and hand kinematics using an LSTM network, including the experimental analyses and model considerations.
+- **`Unity_Visualization/`**: offline visualization of the recorded or predicted hand motion using a rigged hand in Unity.
 
 A pptx is also attached for a better visual presentation. 
 
