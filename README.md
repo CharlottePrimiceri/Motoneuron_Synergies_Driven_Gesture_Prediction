@@ -1,73 +1,172 @@
-# Motoneuron_Synergies_Driven_Gesture_Prediction
+# Hand Pose Prediction from Motoneuron Synergies
 
-## Hand Visualization in Unity from 5DT Glove Signals
+This repository contains the processing and learning pipeline developed for my thesis **"Hand Pose Prediction Driven by Motoneuron Synergies"**.
 
-- `Glove_analysis.ipynb`: notebook used to inspect the glove signals, read the WFDB record, check channel names, verify signal shape and duration, and converted into a CSV suitable for Unity. The signal matrix has shape:
-  - `37400 x 14`
-  which corresponds to 14 glove channels sampled over approximately 187 seconds with `fs = 200 Hz`. These channels are not assumed to be directly expressed in anatomical degrees. In practice, they behave as glove sensor outputs that vary consistently with finger posture. For visualization, the normalized raw glove signals are converted in suitable angles for the Unity rig. Flexion channels are linearly mapped to predefined anatomical-like angular ranges, while abduction channels are centered around zero and scaled to smaller lateral rotation ranges. Ranges are chosen inspecting the Unity Rig. For Unity playback, the preferred file is the CSV converted for rendering, `glove_unity_deg.csv` with columns:
+The project investigates how to build a pipeline for predicting hand kinematics from neural activation patterns extracted from high-density surface electromyography (HD-sEMG) exploiting motoneuron synergies as in "Merging motoneuron and postural synergies in prosthetic hand design for natural bionic interfacing" by Capsi-Morales et al. .
 
-  - `time_s`, `Thumb_MCP`, `Thumb_IP`, `Thumb_Index_abd`, `Index_MCP`, `Index_PIP`, `Index_Middle_abd`, `Middle_MCP`, `Middle_PIP`, `Middle_Ring_abd`, `Ring_MCP`, `Ring_PIP`, `Ring_Little_abd`, `Little_MCP`, `Little_PIP`.
+The repository is organized into three main components:
 
-- `HandFingers.cs`: Unity C# script used to read a CSV file and animate the rigged hand in Unity.
-  
-- `glove_sample_subj_01_trial_01/`: sample folder containing the glove record in WFDB format (`.hea` and `.dat`) and the CSV for Unity.
-  
-### Unity setup
+- **`preprocessing/`** — HD-sEMG processing, motor unit decomposition, motor unit validation and tracking, discharge rate estimation, and neural synergy extraction.
+- **`LSTM/`** — learning of the mapping between temporal synergy activations and hand kinematics using an LSTM network, including the experimental analyses and model considerations.
+- **`Unity_Visualization/`** — offline visualization of the recorded or predicted hand motion using a rigged hand in Unity.
 
-A rigged hand model must be imported into Unity. The right hand model used for visualization was obtained from the Unity XR package, and the project was developed using Unity Editor version 6000.4.3f1. The important requirement is that the hand contains separate finger bones such as:
+A pptx is also attached for a better visual presentation. 
 
-- `b_r_thumb1`, `b_r_thumb2`
-- `b_r_index1`, `b_r_index2`, `b_r_index3`
-- `b_r_middle1`, `b_r_middle2`, `b_r_middle3`
-- `b_r_ring1`, `b_r_ring2`, `b_r_ring3`
-- `b_r_little1`, `b_r_little2`, `b_r_little3`
+---
 
-Attach `HandFingers.cs` to the root object of the hand.
-The script should then expose, in the Unity Inspector:
+## 2. General Pipeline
 
-- a `TextAsset` field for the CSV file,
-- `Transform` references for the thumb, index, middle, ring and little finger bones,
-- optional scale and inversion parameters for flexion and abduction.
-In the Inspector, assign:
+The complete processing and learning pipeline can be summarized as:
 
-  - the exported glove CSV file,
-  - the correct bone transforms for all fingers.
+```text
+HD-sEMG + Hand Kinematics
+          │
+          ▼
+┌─────────────────────────────┐
+│        Preprocessing        │
+│                             │
+│  • HD-sEMG filtering        │
+│  • Synchronization          │
+│  • Isometric segmentation   │
+│  • MUedit data formatting   │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌─────────────────────────────┐
+│ Motor Unit Decomposition    │
+│                             │
+│  • Multi-task decomposition │
+│  • MU validation            │
+│  • MUAP analysis            │
+│  • Cross-trial tracking     │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌─────────────────────────────┐
+│   Neural Synergy Extraction │
+│                             │
+│  Motor-unit discharge rates │
+│             ↓               │
+│            NNMF             │
+│             ↓               │
+│      W and H matrices       │
+└──────────────┬──────────────┘
+               │
+               │ temporal synergy activations H(t)
+               ▼
+┌─────────────────────────────┐
+│          LSTM               │
+│                             │
+│  Neural synergies →         │
+│  hand kinematics            │
+└──────────────┬──────────────┘
+               │
+               │ predicted hand pose
+               ▼
+┌─────────────────────────────┐
+│      Unity Visualization    │
+│                             │
+│  Predicted / recorded hand  │
+│  motion rendered on a       │
+│  rigged 3D hand             │
+└─────────────────────────────┘
+```
 
-For example:
+The first part of the pipeline converts the raw HD-sEMG recordings into a lower dimensional neural representation. The second part uses this representation as the input to a recurrent neural network.
 
-- `index1 -> b_r_index1`
-- `index2 -> b_r_index2`
-- `index3 -> b_r_index3`
+---
 
-For now, the Unity script replays the glove motion offline.
+## 3. Preprocessing and Neural Synergy Extraction
 
-1. load all CSV rows at startup,
-2. store the initial local rotations of the bones,
-3. advance one sample at a time according to the chosen sample rate,
-4. apply finger flexion (around Z axe) and abduction (around Y axe) to the corresponding bones,
-5. loop the sequence when the end of the trial is reached.
+The `preprocessing/` folder contains the complete signal-processing pipeline required to obtain neural synergies from the HD-sEMG recordings.
 
-### Practical assumptions used during playback
+The processing includes:
 
-- Flexion is applied to the finger joints as a rotation around the local flexion axis of the bone.
-- For the tested rig, flexion was found empirically by rotating bones manually in the Inspector.
-- Distal interphalangeal joints (DIP) can be approximated from the PIP angle, for example using a factor such as `0.6 * PIP`.
-- Abduction is applied only to the base finger bones to avoid unrealistic twisting of the whole finger chain.
-- Sign inversions are sometimes necessary because the rig coordinate system may use the opposite rotation direction compared to the glove convention.
+- glove signal inspection and kinematic segmentation;
+- HD-sEMG preprocessing and synchronization;
+- formatting of the recordings for MUedit;
+- multi-trial / multi-task motor-unit decomposition;
+- motor-unit quality control and cleaning;
+- motor-unit action-potential validation;
+- cross-trial motor-unit tracking and filter projection;
+- smoothed motor-unit discharge-rate estimation;
+- neural synergy extraction using NNMF.
 
-### Recording the hand motion
+The output of this stage is a temporal representation of the neural synergies:
 
-To capture a video from Unity:
+\[
+\mathbf{S}(t) \approx \mathbf{W}\mathbf{H}(t),
+\]
 
-1. install the Recorder package from the Package Manager,
-2. create a dedicated camera close to the hand,
-3. use `Targeted Camera` as the Recorder source,
-4. choose manual recording or a sufficiently long recording interval,
-5. export the video in a standard format such as MP4.
+where \(\mathbf{W}\) contains the synergy weights and \(\mathbf{H}(t)\) describes the temporal activation of the extracted synergies.
 
-A video of the sample data can be found in the following drive:
+For the learning stage, the temporal synergy activations are used as the neural input representation.
 
-https://drive.google.com/file/d/1xKhL-a1pIBRN3dIU34b6PNTa2PQMBCOn/view?usp=sharing
+For the detailed implementation and individual scripts, see:
+
+**[`preprocessing/`](./preprocessing/)**
+
+---
+
+## 4. Learning Hand Pose from Neural Synergies
+
+The `LSTM/` folder contains the machine-learning component of the project.
+
+The objective is to learn the temporal relationship:
+
+\[
+\mathbf{H}(t)
+\quad\longrightarrow\quad
+\mathbf{G}(t),
+\]
+
+where:
+
+- \(\mathbf{H}(t)\) represents the temporal activation of the extracted neural synergies;
+- \(\mathbf{G}(t)\) represents the corresponding hand configuration measured by the glove.
+
+The thesis investigates whether the relationship can be learned from synchronized examples of neural activity and hand kinematics through an **LSTM (Long Short-Term Memory)** network.
+
+The experiments investigate progressively:
+
+- learning within the same participant;
+- prediction on unseen trials;
+- prediction for an unseen participant;
+- training using multiple participants;
+- extension from a single motor task to multiple hand tasks.
+
+For the complete learning pipeline and experimental analysis, see:
+
+**[`LSTM/`](./LSTM/)**
+
+---
+
+## 5. Hand Visualization in Unity
+
+The `Unity_Visualization/` folder contains the visualization component of the project.
+
+---
+
+## 6. Project Structure
+
+```text
+.
+├── README.md
+│
+├── preprocessing/
+│   ├── README.md
+│   ├── python/
+│   └── matlab/
+│
+├── LSTM/
+│   ├── README.md
+│   └── *.ipynb
+│
+└── Unity_Visualization/
+    ├── README.md
+    └── HandFingers.cs
+
+```
 
 ## Bibliography
 
@@ -78,6 +177,19 @@ https://drive.google.com/file/d/1xKhL-a1pIBRN3dIU34b6PNTa2PQMBCOn/view?usp=shari
   year = {2025},
   month = jan,
   note = {Version 1.0.0},
+
+Avrillon, S., Hug, F., Baker, S.N., Gibbs, C., and Farina, D. (2024). Tutorial on MUedit: An open-source software for identifying and analysing the discharge timing of motor units from electromyographic signals. J Electromyogr Kinesiol 77, 102886. 10.1016/j.jelekin.2024.102886,
   doi = {10.13026/ch3e-c195},
   url = {https://doi.org/10.13026/ch3e-c195}
+},
+
+@article{capsi2025merging,
+  title={Merging motoneuron and postural synergies in prosthetic hand design for natural bionic interfacing},
+  author={Capsi-Morales, Patricia and Barsakcioglu, Deren Y and Catalano, Manuel G and Grioli, Giorgio and Bicchi, Antonio and Farina, Dario},
+  journal={Science Robotics},
+  volume={10},
+  number={98},
+  pages={eado9509},
+  year={2025},
+  publisher={American Association for the Advancement of Science}
 }
