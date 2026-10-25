@@ -10,7 +10,7 @@ The repository is organized into three main components:
 
 - **`preprocessing/`**: HD-sEMG processing, motor unit decomposition, motor unit validation and tracking, discharge rate estimation, and neural synergy extraction.
 - **`LSTM/`**: learning of the mapping between temporal synergy activations and hand kinematics using an LSTM network, including the experimental analyses and model considerations.
-- **`Unity_Visualization/`**: offline visualization of the recorded or predicted hand motion using a rigged hand in Unity.
+- **`Unity_Viz/`**: offline visualization of the recorded or predicted hand motion using a rigged hand in Unity.
 
 The pdf Presentation is also attached to visualize plots and resuls. 
 
@@ -111,7 +111,7 @@ The experiments investigate progressively:
 
 ## 4. Hand Visualization in Unity
 
-The `Unity_Visualization/` folder contains the visualization component of the project.
+The `Unity_Viz/` folder contains the visualization component of the project.
 
 
 ## 5. Repository Structure
