@@ -28,11 +28,11 @@ The training objective combines reconstruction accuracy and temporal smoothness.
 
 The experiments were designed progressively to evaluate both learning and generalization:
 
-1. **Single-task:** Hand Closed, using one synergy, with intra-subject evaluation.
-2. **Two-task:** Precision Pinch followed by Hand Closed, using two synergies, with intra-subject evaluation.
-3. **Cross-subject:** training on Subject 2 and testing on the unseen Subject 3.
-4. **Multi-subject:** training on Subjects 2, 7, 8 and 10, with Subject 3 kept exclusively for testing.
+1. **Single-task, Intra-Subject:** Hand Closed, using one synergy, with intra-subject evaluation.
+2. **Two-task, Intra-Subject:** Precision Pinch followed by Hand Closed, using two synergies, with intra-subject evaluation.
+3. **Two-task, Cross-subject:** training on Subject 2 and testing on the unseen Subject 3.
+4. **Two-task, Cross-subject, Multi-subject Training:** training on Subjects 2, 7, 8 and 10, with Subject 3 kept exclusively for testing.
 
 Subject 2 was selected for the initial experiments because its glove recordings showed comparatively high consistency across repeated trials.
-
+In this folder the training for Two-task, Intra-Subject can be found. 
 The results show that the LSTM can learn the temporal mapping between synergy activations and hand kinematics and can distinguish the two main motor phases in the concatenated task.
