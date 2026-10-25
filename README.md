@@ -12,7 +12,6 @@ The repository is organized into three main components:
 
 A pptx is also attached for a better visual presentation. 
 
----
 
 ## 1. Pipeline
 
@@ -74,7 +73,7 @@ HD-sEMG + Hand Kinematics
 
 The first part of the pipeline converts the raw HD-sEMG recordings into a lower dimensional neural representation. The second part uses this representation as the input to a recurrent neural network.
 
----
+
 
 ## 2. Preprocessing and Neural Synergy Extraction
 
