@@ -4,6 +4,8 @@ This repository contains the processing and learning pipeline developed for my t
 
 The project investigates how to build a pipeline for predicting hand kinematics from neural activation patterns extracted from high-density surface electromyography (HD-sEMG) exploiting motoneuron synergies as in "Merging motoneuron and postural synergies in prosthetic hand design for natural bionic interfacing" by Capsi-Morales et al. .
 
+The thesis investigates whether the relationship can be learned from synchronized examples of neural activity and hand kinematics through an **LSTM (Long Short-Term Memory)** network.
+
 The repository is organized into three main components:
 
 - **`preprocessing/`** — HD-sEMG processing, motor unit decomposition, motor unit validation and tracking, discharge rate estimation, and neural synergy extraction.
@@ -91,35 +93,12 @@ The processing includes:
 - smoothed motor-unit discharge-rate estimation;
 - neural synergy extraction using NNMF.
 
-The output of this stage is a temporal representation of the neural synergies:
-
-\[
-\mathbf{S}(t) \approx \mathbf{W}\mathbf{H}(t),
-\]
-
-where \(\mathbf{W}\) contains the synergy weights and \(\mathbf{H}(t)\) describes the temporal activation of the extracted synergies.
-
-For the learning stage, the temporal synergy activations are used as the neural input representation.
+The output of this stage is a temporal representation of the neural synergies used as the neural input representation.
 
 
 ## 3. Learning Hand Pose from Neural Synergies
 
-The `LSTM/` folder contains the machine-learning component of the project.
-
-The objective is to learn the temporal relationship:
-
-\[
-\mathbf{H}(t)
-\quad\longrightarrow\quad
-\mathbf{G}(t),
-\]
-
-where:
-
-- \(\mathbf{H}(t)\) represents the temporal activation of the extracted neural synergies;
-- \(\mathbf{G}(t)\) represents the corresponding hand configuration measured by the glove.
-
-The thesis investigates whether the relationship can be learned from synchronized examples of neural activity and hand kinematics through an **LSTM (Long Short-Term Memory)** network.
+The `LSTM/` folder contains the training to learn the relationship between the extracted neural synergies and the corresponding hand configuration measured by the glove.
 
 The experiments investigate progressively:
 
@@ -133,7 +112,6 @@ The experiments investigate progressively:
 ## 4. Hand Visualization in Unity
 
 The `Unity_Visualization/` folder contains the visualization component of the project.
-
 
 
 ## 5. Repository Structure
