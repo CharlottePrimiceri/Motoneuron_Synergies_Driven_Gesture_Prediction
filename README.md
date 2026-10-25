@@ -1,4 +1,4 @@
-# Hand Pose Prediction from Motoneuron Synergies
+# Hand Pose Prediction Driven by Motoneuron Synergies
 
 This repository contains the processing and learning pipeline developed for my thesis **"Hand Pose Prediction Driven by Motoneuron Synergies"**.
 
