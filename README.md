@@ -102,11 +102,6 @@ where \(\mathbf{W}\) contains the synergy weights and \(\mathbf{H}(t)\) describe
 
 For the learning stage, the temporal synergy activations are used as the neural input representation.
 
-For the detailed implementation and individual scripts, see:
-
-**[`preprocessing/`](./preprocessing/)**
-
----
 
 ## 3. Learning Hand Pose from Neural Synergies
 
@@ -135,17 +130,12 @@ The experiments investigate progressively:
 - training using multiple participants;
 - extension from a single motor task to multiple hand tasks.
 
-For the complete learning pipeline and experimental analysis, see:
-
-**[`LSTM/`](./LSTM/)**
-
----
 
 ## 4. Hand Visualization in Unity
 
 The `Unity_Visualization/` folder contains the visualization component of the project.
 
----
+
 
 ## 5. Repository Structure
 
@@ -167,6 +157,7 @@ The `Unity_Visualization/` folder contains the visualization component of the pr
     └── HandFingers.cs
 
 ```
+
 ## 6. Acknowledgements
 
 This work was developed as part of my Master's thesis in Artificial Intelligence and Robotics at **Sapienza University of Rome**, under the supervision of **Prof. Marilena Vendittelli** and the co-supervision of **Dr. Emma Colamarino**, **Prof. Jlenia Toppi**, **Dr. Emanuele De Santis**.
