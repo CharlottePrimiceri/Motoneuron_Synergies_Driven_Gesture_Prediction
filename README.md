@@ -14,7 +14,7 @@ A pptx is also attached for a better visual presentation.
 
 ---
 
-## 2. General Pipeline
+## 1. Pipeline
 
 The complete processing and learning pipeline can be summarized as:
 
@@ -76,7 +76,7 @@ The first part of the pipeline converts the raw HD-sEMG recordings into a lower 
 
 ---
 
-## 3. Preprocessing and Neural Synergy Extraction
+## 2. Preprocessing and Neural Synergy Extraction
 
 The `preprocessing/` folder contains the complete signal-processing pipeline required to obtain neural synergies from the HD-sEMG recordings.
 
@@ -108,7 +108,7 @@ For the detailed implementation and individual scripts, see:
 
 ---
 
-## 4. Learning Hand Pose from Neural Synergies
+## 3. Learning Hand Pose from Neural Synergies
 
 The `LSTM/` folder contains the machine-learning component of the project.
 
@@ -141,13 +141,13 @@ For the complete learning pipeline and experimental analysis, see:
 
 ---
 
-## 5. Hand Visualization in Unity
+## 4. Hand Visualization in Unity
 
 The `Unity_Visualization/` folder contains the visualization component of the project.
 
 ---
 
-## 6. Project Structure
+## 5. Repository Structure
 
 ```text
 .
@@ -167,6 +167,9 @@ The `Unity_Visualization/` folder contains the visualization component of the pr
     └── HandFingers.cs
 
 ```
+## 6. Acknowledgements
+
+This work was developed as part of my Master's thesis in Artificial Intelligence and Robotics at **Sapienza University of Rome**, under the supervision of **Prof. Marilena Vendittelli** and the co-supervision of **Dr. Emma Colamarino**, **Prof. Jlenia Toppi**, **Dr. Emanuele De Santis**.
 
 ## Bibliography
 
