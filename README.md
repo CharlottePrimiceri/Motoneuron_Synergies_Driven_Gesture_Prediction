@@ -12,7 +12,7 @@ The repository is organized into three main components:
 - **`LSTM/`**: learning of the mapping between temporal synergy activations and hand kinematics using an LSTM network, including the experimental analyses and model considerations.
 - **`Unity_Visualization/`**: offline visualization of the recorded or predicted hand motion using a rigged hand in Unity.
 
-A pptx is also attached for a better visual presentation. 
+The pdf Presentation is also attached to visualize plots and resuls. 
 
 
 ## 1. Pipeline
