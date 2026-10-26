@@ -8,7 +8,7 @@ The thesis investigates whether the relationship can be learned from synchronize
 
 The repository is organized into three main components:
 
-- **`preprocessing/`**: HD-sEMG processing, motor unit decomposition, motor unit validation and tracking, discharge rate estimation, and neural synergy extraction.
+- **`Clean_separation_filters/`**: HD-sEMG processing, motor unit decomposition, motor unit validation and tracking, discharge rate estimation, and neural synergy extraction.
 - **`LSTM/`**: learning of the mapping between temporal synergy activations and hand kinematics using an LSTM network, including the experimental analyses and model considerations.
 - **`Unity_Viz/`**: offline visualization of the recorded or predicted hand motion using a rigged hand in Unity.
 
@@ -79,7 +79,7 @@ The first part of the pipeline converts the raw HD-sEMG recordings into a lower 
 
 ## 2. Preprocessing and Neural Synergy Extraction
 
-The `preprocessing/` folder contains the complete signal-processing pipeline required to obtain neural synergies from the HD-sEMG recordings.
+The `Clean_separation_filters/` folder contains the complete signal-processing pipeline required to obtain neural synergies from the HD-sEMG recordings.
 
 The processing includes:
 
