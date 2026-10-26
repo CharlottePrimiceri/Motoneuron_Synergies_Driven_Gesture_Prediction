@@ -57,7 +57,6 @@ The temporal upsampling increases the temporal resolution available to the decom
 
 # 3. MUedit Data Formatting
 
-**Language:** MATLAB
 
 The preprocessed HD-sEMG signals are converted into the MATLAB data structure required by the MUedit decomposition framework.
 
@@ -92,8 +91,6 @@ These parameters define the projection used to identify the same motor units in 
 ---
 
 # 5. Motor Unit Quality Control and Cleaning
-
-**Language:** MATLAB
 
 The initial decomposition produces candidate motor units that require additional quality control before being used for synergy extraction.
 
