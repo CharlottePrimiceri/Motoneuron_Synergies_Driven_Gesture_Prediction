@@ -114,28 +114,7 @@ The experiments investigate progressively:
 The `Unity_Viz/` folder contains the visualization component of the project.
 
 
-## 5. Repository Structure
-
-```text
-.
-├── README.md
-│
-├── preprocessing/
-│   ├── README.md
-│   ├── python/
-│   └── matlab/
-│
-├── LSTM/
-│   ├── README.md
-│   └── *.ipynb
-│
-└── Unity_Visualization/
-    ├── README.md
-    └── HandFingers.cs
-
-```
-
-## 6. Acknowledgements
+## 5. Acknowledgements
 
 This work was developed as part of my Master's thesis in Artificial Intelligence and Robotics at **Sapienza University of Rome**, under the supervision of **Prof. Marilena Vendittelli** and the co-supervision of **Dr. Emma Colamarino**, **Prof. Jlenia Toppi**, **Dr. Emanuele De Santis**.
 
