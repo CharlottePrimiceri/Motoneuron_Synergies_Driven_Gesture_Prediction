@@ -1,6 +1,6 @@
 # Hand Pose Prediction Driven by Motoneuron Synergies
 
-This repository contains the processing and learning pipeline developed for my thesis **"Hand Pose Prediction Driven by Motoneuron Synergies"**.
+This repository contains the explanation of the processing and learning pipeline developed for my thesis **"Hand Pose Prediction Driven by Motoneuron Synergies"**. 
 
 The project investigates how to build a pipeline for predicting hand kinematics from neural activation patterns extracted from high-density surface electromyography (HD-sEMG) exploiting motoneuron synergies as in "Merging motoneuron and postural synergies in prosthetic hand design for natural bionic interfacing" by Capsi-Morales et al. .
 
@@ -12,7 +12,7 @@ The repository is organized into three main components:
 - **`LSTM/`**: learning of the mapping between temporal synergy activations and hand kinematics using an LSTM network, including the experimental analyses and model considerations.
 - **`Unity_Viz/`**: offline visualization of the recorded or predicted hand motion using a rigged hand in Unity.
 
-The pdf Presentation is also attached to visualize plots and resuls. 
+The pdf Presentation and full Thesis are also attached to visualize plots and results. 
 
 
 ## 1. Pipeline
